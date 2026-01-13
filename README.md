@@ -45,17 +45,17 @@ Créez un fichier `.env` à la racine du projet (ce fichier est ignoré par Git 
 COLOR=blue
 APP_PORT=3000
 JWT_SECRET=votre_cle_secrete_generee
-DATABASE_URL=postgresql://admin:password@db:5432/conduit
+DATABASE_URL=postgresql://admin:password@db:5432/conduit```
 ### Étape 2 : Lancement de l'infrastructure
 Exécutez la commande suivante pour construire et lancer l'application avec sa base de données PostgreSQL :
 
 ```bash
-docker-compose -f docker/docker-compose.yml up -d --build
+docker-compose -f docker/docker-compose.yml up -d --build```
 ### Étape 3 : Vérification
 Attendez environ 30 secondes (le temps que Prisma applique les migrations) et testez l'API :
 
 ```bash
-curl -I http://localhost:3000/api/articles
+curl -I http://localhost:3000/api/articles```
 
 Note : Si vous recevez un code HTTP 200 ou 401, l'application est opérationnelle.
 
