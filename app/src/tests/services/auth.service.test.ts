@@ -1,25 +1,43 @@
 import prismaMock from '../prisma-mock';
-// Mock utilisateur existant
-const mockedExistingUser = {
-  id: 3,
-  username: 'AuthUser',
-  email: 'auth@example.com',
-  password: 'hashedpassword',
-  bio: null,
-  image: null,
-  token: 'token-auth',
-  demo: false,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+import { registerUser, loginUser } from '../../app/routes/auth/auth.service';
 
-// Mock réponse après update
-const mockedResponse = {
-  ...mockedExistingUser,
-  bio: 'Updated bio',
-  updatedAt: new Date(),
-};
+describe('AuthService', () => {
+  test('registerUser should return created user', async () => {
+    const mockedExistingUser = {
+      id: 1,
+      username: 'TestUser',
+      email: 'test@me',
+      password: '1234',
+      bio: null,
+      image: null,
+      token: '',
+      demo: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-// Utilisation dans les tests
-prismaMock.user.findUnique.mockResolvedValue(mockedExistingUser);
-prismaMock.user.update.mockResolvedValue(mockedResponse);
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue(mockedExistingUser);
+
+    await expect(registerUser('TestUser', 'test@me', '1234')).resolves.toHaveProperty('username', 'TestUser');
+  });
+
+  test('loginUser should return existing user', async () => {
+    const mockedExistingUser = {
+      id: 1,
+      username: 'TestUser',
+      email: 'test@me',
+      password: '1234',
+      bio: null,
+      image: null,
+      token: '',
+      demo: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    prismaMock.user.findUnique.mockResolvedValue(mockedExistingUser);
+
+    await expect(loginUser('test@me', '1234')).resolves.toHaveProperty('email', 'test@me');
+  });
+});
