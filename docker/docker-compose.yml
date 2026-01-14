@@ -1,29 +1,48 @@
 version: '3.8'
 services:
-  app:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    container_name: app-${COLOR:-blue}
+  # --- SERVICE BLUE ---
+  blue:
+    # On utilise l'image qu'on vient de télécharger, pas de build local
+    image: melvyn92/app:latest
+    container_name: app-blue
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "3001:3000"  # Blue écoute sur 3001
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
+      - PORT=3000
     depends_on:
       db:
         condition: service_healthy
 
+  # --- SERVICE GREEN ---
+  green:
+    image: melvyn92/app:latest
+    container_name: app-green
+    ports:
+      - "3002:3000"  # Green écoute sur 3002
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # --- BASE DE DONNEES ---
   db:
     image: postgres:14-alpine
     container_name: database-realworld
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # On met des valeurs par défaut pour éviter les warnings
+      - POSTGRES_USER=${POSTGRES_USER:-test}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-test}
       - POSTGRES_DB=conduit
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d conduit"]
+      # On s'assure que l'utilisateur correspond (ici test par défaut)
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-test} -d conduit"]
       interval: 5s
       timeout: 5s
       retries: 5
