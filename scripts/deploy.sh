@@ -26,7 +26,7 @@ export COLOR=$TARGET
 export APP_PORT=$TARGET_PORT
 
 # Utilisation de --build pour integrer les changements du git pull
-docker-compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker/docker compose.yml up -d --build
 
 # 5. Verification de sante (Healthcheck)
 echo "Attente du demarrage de la version $TARGET (30s)..."
