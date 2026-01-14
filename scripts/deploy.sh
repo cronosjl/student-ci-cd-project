@@ -10,7 +10,6 @@ echo "Lancement du deploiement : Cible $COLOR sur port $PORT"
 docker pull melvyn92/app:latest
 
 # 2. Demarrage du nouveau conteneur
-# On utilise bien 'docker compose' (espace) et le fichier 'docker-compose.yml' (tiret)
 docker compose -f docker/docker-compose.yml up -d --pull always $COLOR
 
 # 3. Attente pour s'assurer que le service est pret
