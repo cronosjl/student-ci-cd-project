@@ -4,8 +4,6 @@
 COLOR=${COLOR:-blue}
 
 # --- LOGIQUE DES PORTS ---
-# Si on deploie BLUE, on verifie le port 3001
-# Si on deploie GREEN, on verifie le port 3002
 if [ "$COLOR" == "blue" ]; then
     HOST_PORT=3001
 else
@@ -20,15 +18,15 @@ docker pull melvyn92/app:latest
 # 2. Demarrage du conteneur
 docker compose -f docker/docker-compose.yml up -d --pull always $COLOR
 
-# 3. Attente pour s'assurer que le service est pret
-echo "Attente du demarrage de la version $COLOR (30s)..."
-sleep 30
+# 3. Attente (Augmentee a 60s pour laisser le temps a Prisma/Node de demarrer)
+echo "Attente du demarrage de la version $COLOR (60s)..."
+sleep 60
 
-# 4. Verification de sante (curl) sur le BON PORT (HOST_PORT)
-echo "Test de l'URL : http://localhost:$HOST_PORT/api/articles"
+# 4. Verification de sante (Utilisation de 127.0.0.1 plus fiable que localhost sur CI)
+echo "Test de l'URL : http://127.0.0.1:$HOST_PORT/api/articles"
 
-if curl -s -I "http://localhost:$HOST_PORT/api/articles" | grep -qE "HTTP/1.[01] (200|401)"; then
-    echo "Succes : La version $COLOR repond correctement sur le port $HOST_PORT."
+if curl -s -I "http://127.0.0.1:$HOST_PORT/api/articles" | grep -qE "HTTP/1.[01] (200|401)"; then
+    echo "Succes : La version $COLOR repond correctement."
     
     # 5. Application des migrations
     echo "Application des migrations DB..."
@@ -37,7 +35,13 @@ if curl -s -I "http://localhost:$HOST_PORT/api/articles" | grep -qE "HTTP/1.[01]
     echo "Deploiement termine avec succes !"
     exit 0
 else
-    echo "Echec du deploiement de $COLOR (Le curl a echoue sur le port $HOST_PORT)."
+    echo "Echec du deploiement de $COLOR."
+    
+    # --- DEBUG : AFFICHER LES LOGS AVANT DE TUER LE CONTENEUR ---
+    echo "Voici les logs du conteneur pour comprendre l'erreur :"
+    docker compose -f docker/docker-compose.yml logs $COLOR
+    # ------------------------------------------------------------
+
     # On arrete le conteneur qui vient d'echouer
     docker compose -f docker/docker-compose.yml stop $COLOR
     exit 1
