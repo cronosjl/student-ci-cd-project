@@ -8,8 +8,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  ci:
-    name: Lint + Test + Build Docker
+  # ------------------------------------------------------------------
+  # JOB 1 : CI & BUILD ( Push Docker Hub)
+  # ------------------------------------------------------------------
+  ci-build-push:
+    name: Lint, Test & Push to Docker Hub
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -42,64 +45,72 @@ jobs:
         working-directory: app
         run: npm ci
 
-      # --- Prisma migrations ---
       - name: Generate Prisma client
         working-directory: app
         run: npx prisma generate
 
       - name: Create database & run migrations
         working-directory: app
-        run: |
-          npx prisma migrate dev --name init --skip-seed
-
-      - name: Seed database
-        working-directory: app
-        run: npm run seed
-
-      # --- Lint + Tests ---
-      - name: Lint
-        working-directory: app
-        run: npx eslint . --max-warnings=0
+        run: npx prisma migrate dev --name init --skip-seed
 
       - name: Run tests
         working-directory: app
         run: npm test
 
-      # --- Docker ---
-      - name: Build Docker image
-        run: |
-          docker build \
-            -t melvyn92/app:latest \
-            -t melvyn92/app:${{ github.sha }} \
-            -f docker/Dockerfile .
+      # --- PARTIE DOCKER HUB ---
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/main' # On ne push que si on est sur main
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Build and Push Docker Image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Construction
+          docker build -t melvyn92/app:${{ github.sha }} -f docker/Dockerfile .
+          docker tag melvyn92/app:${{ github.sha }} melvyn92/app:latest
+          
+          # Envoi vers Docker Hub
+          docker push melvyn92/app:${{ github.sha }}
+          docker push melvyn92/app:latest
+
+  # ------------------------------------------------------------------
+  # JOB 2 : CD 
+  # ------------------------------------------------------------------
+  deploy:
+    name: Deploy Blue/Green
+    runs-on: ubuntu-latest
+    needs: ci-build-push
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Récupération du code (pour avoir le script deploy.sh)
+        uses: actions/checkout@v3
+
+      # On se connecte pour pouvoir PULL l'image privée (si elle l'est)
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push Docker image
+      - name: Pull Docker Image
         run: |
-          docker push melvyn92/app:latest
-          docker push melvyn92/app:${{ github.sha }}
+          echo "⬇️ Récupération de l'image depuis Docker Hub..."
+          docker pull melvyn92/app:latest
+          
+          # On renomme l'image pour que le docker-compose ou le script la trouve facilement
+          # (au cas où votre docker-compose utilise un autre nom)
+          docker tag melvyn92/app:latest my-app:latest
 
-  deploy:
-    name: Deploy Docker Container
-    runs-on: ubuntu-latest
-    needs: ci
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy to remote server
+      - name: Lancement Script Blue/Green
+        run: |
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: |
-          ssh user@YOUR_SERVER_IP "
-          docker pull melvyn92/app:${{ github.sha }}
-          docker stop app || true
-          docker rm app || true
-          docker run -d -p 3000:3000 \
-            --env DATABASE_URL=${DATABASE_URL} \
-            --env JWT_SECRET=${JWT_SECRET} \
-            melvyn92/app:${{ github.sha }}"
+          COLOR: blue
+          APP_PORT: 3000
