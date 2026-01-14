@@ -1,3 +1,4 @@
+import prismaMock from '../prisma-mock';
 // Mock utilisateur existant
 const mockedExistingUser = {
   id: 3,

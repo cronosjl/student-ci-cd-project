@@ -1,3 +1,4 @@
+import prismaMock from '../prisma-mock';
 // Mock utilisateur
 const mockedUserResponse = {
   id: 1,

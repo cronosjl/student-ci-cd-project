@@ -1,3 +1,4 @@
+import prismaMock from '../prisma-mock';
 // Mock utilisateur authentifié
 const mockedAuthUser = {
   id: 2,
