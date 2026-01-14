@@ -1,41 +1,31 @@
-# Stage 1: Construction
-FROM node:18-bullseye-slim AS builder
+# On utilise une image Node.js solide (Etape unique pour eviter les soucis de copie)
+FROM node:18-bullseye
 
-# Installation des dépendances système
+# Installation des dependances systeme requises par Prisma (OpenSSL)
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copie des dépendances
+# 1. Copie des fichiers de dependances
 COPY app/package*.json ./
+
+# 2. Installation complete des modules
 RUN npm install
 
-# Copie du code source
+# 3. Copie de tout le code source
 COPY app/ .
 
 
-# On recrée manuellement le fichier prisma-client.ts pour que TypeScript soit content
+# On recree le fichier prisma-client.ts
 RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
-# -------------------------------------
 
-# Génération du client Prisma
-RUN npx prisma generate
+# 4. GENERATION CRITIQUE DU CLIENT PRISMA
+# C'est cette commande qui va lire schema.prisma et injecter les types (Article, User...) dans node_modules
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Stage 2: Image finale (plus légère)
-FROM node:18-bullseye-slim
-
-WORKDIR /usr/src/app
-
-# Installation de openssl (requis par Prisma runtime)
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
-# On récupère tout ce qui a été construit dans le stage builder
-COPY --from=builder /usr/src/app ./
-
-# On expose le port 3000
+# 5. Exposition du port
 EXPOSE 3000
 
-# Commande de démarrage simplifiée
-# Note : On a retiré "migrate deploy" d'ici car c'est le script deploy.sh qui le fait.
-# Cela permet au conteneur de démarrer plus vite.
+# 6. Démarrage de l'application
+# On utilise 'exec' pour que les signaux d'arret (docker stop) passent bien
 CMD ["npx", "nx", "serve", "api", "--host=0.0.0.0"]
