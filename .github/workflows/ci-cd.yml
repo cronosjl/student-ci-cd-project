@@ -1,36 +1,38 @@
 name: CI/CD Pipeline
 
-# Déclenche le pipeline sur push et pull_request vers main
+# Déclenche sur push ou PR sur main, ou manuellement
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:  # Permet un lancement manuel
+  workflow_dispatch:
 
 jobs:
   ci:
     name: Lint + Test + Build Docker
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Récupérer le code
+      # 1️⃣ Checkout du code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Installer Node.js
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      # 3️⃣ Installer les dépendances et Lint
+      # 3️⃣ Installer les dépendances et Lint dans /app
       - name: Install dependencies & Lint
+        working-directory: app
         run: |
           npm ci
           npx eslint . --max-warnings=0
 
-      # 4️⃣ Lancer les tests
+      # 4️⃣ Lancer les tests dans /app
       - name: Run Tests
+        working-directory: app
         run: npm test
 
       # 5️⃣ Build Docker
@@ -57,12 +59,12 @@ jobs:
   deploy:
     name: Deploy Docker Container
     runs-on: ubuntu-latest
-    needs: ci  # Déploiement seulement si CI réussi
+    needs: ci
     steps:
-      # 1️⃣ Récupérer le code (facultatif si déploiement distant uniquement)
+      # 1️⃣ Checkout du code (optionnel si déploiement distant uniquement)
       - uses: actions/checkout@v3
 
-      # 2️⃣ Déploiement sur serveur via SSH
+      # 2️⃣ Déploiement sur serveur distant via SSH
       - name: Deploy to remote server
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -76,4 +78,3 @@ jobs:
             --env DATABASE_URL=${DATABASE_URL} \
             --env JWT_SECRET=${JWT_SECRET} \
             melvyn92/app:${{ github.sha }}"
-
