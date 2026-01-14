@@ -1,116 +1,51 @@
-name: CI/CD Pipeline
+services:
+  database-realworld:
+    image: postgres:15
+    container_name: database-realworld
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+  app-blue:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    container_name: app-blue
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      APP_PORT: ${APP_PORT:-3001}
+    ports:
+      - "${APP_PORT:-3001}:3000"
+    depends_on:
+      database-realworld:
+        condition: service_healthy
 
-jobs:
-  # ------------------------------------------------------------------
-  # JOB 1 : CI & BUILD ( Push Docker Hub)
-  # ------------------------------------------------------------------
-  ci-build-push:
-    name: Lint, Test & Push to Docker Hub
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: testdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+  app-green:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    container_name: app-green
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      APP_PORT: ${APP_PORT:-3002}
+    ports:
+      - "${APP_PORT:-3002}:3000"
+    depends_on:
+      database-realworld:
+        condition: service_healthy
 
-    env:
-      DATABASE_URL: postgres://test:test@localhost:5432/testdb
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install dependencies
-        working-directory: app
-        run: npm ci
-
-      - name: Generate Prisma client
-        working-directory: app
-        run: npx prisma generate
-
-      - name: Create database & run migrations
-        working-directory: app
-        run: npx prisma migrate dev --name init --skip-seed
-
-      - name: Run tests
-        working-directory: app
-        run: npm test
-
-      # --- PARTIE DOCKER HUB ---
-      - name: Login to Docker Hub
-        if: github.ref == 'refs/heads/main' # On ne push que si on est sur main
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and Push Docker Image
-        if: github.ref == 'refs/heads/main'
-        run: |
-          # Construction
-          docker build -t melvyn92/app:${{ github.sha }} -f docker/Dockerfile .
-          docker tag melvyn92/app:${{ github.sha }} melvyn92/app:latest
-          
-          # Envoi vers Docker Hub
-          docker push melvyn92/app:${{ github.sha }}
-          docker push melvyn92/app:latest
-
-  # ------------------------------------------------------------------
-  # JOB 2 : CD 
-  # ------------------------------------------------------------------
-  deploy:
-    name: Deploy Blue/Green
-    runs-on: ubuntu-latest
-    needs: ci-build-push
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Récupération du code (pour avoir le script deploy.sh)
-        uses: actions/checkout@v3
-
-      # On se connecte pour pouvoir PULL l'image privée (si elle l'est)
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Pull Docker Image
-        run: |
-          echo "⬇️ Récupération de l'image depuis Docker Hub..."
-          docker pull melvyn92/app:latest
-          
-          # On renomme l'image pour que le docker-compose ou le script la trouve facilement
-          # (au cas où votre docker-compose utilise un autre nom)
-          docker tag melvyn92/app:latest my-app:latest
-
-      - name: Lancement Script Blue/Green
-        run: |
-          chmod +x scripts/deploy.sh
-          ./scripts/deploy.sh
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          COLOR: blue
-          APP_PORT: 3000
+volumes:
+  pgdata:
