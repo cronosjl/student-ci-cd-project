@@ -2,11 +2,10 @@ version: '3.8'
 services:
   # --- SERVICE BLUE ---
   blue:
-    # On utilise l'image qu'on vient de télécharger, pas de build local
     image: melvyn92/app:latest
     container_name: app-blue
     ports:
-      - "3001:3000"  # Blue écoute sur 3001
+      - "3001:3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -21,7 +20,7 @@ services:
     image: melvyn92/app:latest
     container_name: app-green
     ports:
-      - "3002:3000"  # Green écoute sur 3002
+      - "3002:3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -34,15 +33,15 @@ services:
   # --- BASE DE DONNEES ---
   db:
     image: postgres:14-alpine
-    container_name: database-realworld
+    container_name: db
     environment:
-      # On met des valeurs par défaut pour éviter les warnings
-      - POSTGRES_USER=${POSTGRES_USER:-test}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-test}
+      # CORRECTION ICI : On force admin/password pour correspondre à votre Secret GitHub
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
       - POSTGRES_DB=conduit
     healthcheck:
-      # On s'assure que l'utilisateur correspond (ici test par défaut)
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-test} -d conduit"]
+      # On met a jour le healthcheck pour verifier l'utilisateur 'admin'
+      test: ["CMD-SHELL", "pg_isready -U admin -d conduit"]
       interval: 5s
       timeout: 5s
       retries: 5
