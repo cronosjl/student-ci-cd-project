@@ -1,14 +1,15 @@
 #!/bin/bash
+set -e
 
-# 1. Recuperation de la derniere version du code
-echo "Recuperation du code depuis GitHub..."
+# --- 1. Pull du code ---
+echo "🔄 Récupération du code depuis GitHub..."
 git pull origin main
 
-# 2. Configuration des ports
+# --- 2. Configuration des ports ---
 BLUE_PORT=3001
 GREEN_PORT=3002
 
-# 3. Detection de la version active
+# --- 3. Détection de la version active ---
 if [ "$(docker ps -q -f name=app-blue)" ]; then
     TARGET="green"
     TARGET_PORT=$GREEN_PORT
@@ -19,29 +20,38 @@ else
     OLD="green"
 fi
 
-echo "Lancement du deploiement Blue/Green : Cible $TARGET sur port $TARGET_PORT"
+echo "🚀 Lancement du déploiement Blue/Green : Cible $TARGET sur port $TARGET_PORT"
 
-# 4. Export des variables pour Docker Compose
+# --- 4. Export des variables pour Docker Compose ---
 export COLOR=$TARGET
 export APP_PORT=$TARGET_PORT
 
-# Utilisation de --build pour integrer les changements du git pull
-docker compose -f docker/docker-compose.yml up -d --build
+# --- 5. Démarrage PostgreSQL si besoin ---
+docker compose -f docker/docker-compose.yml up -d database-realworld
 
-# 5. Verification de sante (Healthcheck)
-echo "Attente du demarrage de la version $TARGET (30s)..."
+# --- 6. Vérification de la santé de la DB ---
+echo "⏳ Attente que la base de données soit prête (20s)..."
+sleep 20
+
+# --- 7. Démarrage de la nouvelle version seulement ---
+docker compose -f docker/docker-compose.yml up -d --build app-$TARGET
+
+# --- 8. Attente que l'app soit prête ---
+echo "⏳ Attente du démarrage de la version $TARGET (30s)..."
 sleep 30
 
+# --- 9. Vérification que le container tourne ---
 if [ "$(docker ps -q -f name=app-$TARGET)" ]; then
-    echo "Version $TARGET en ligne sur le port $TARGET_PORT"
+    echo "✅ Version $TARGET en ligne sur le port $TARGET_PORT"
     
-    # 6. Switch et Arret de l'ancienne version
+    # 10. Arrêt de l'ancienne version si existante
     if [ "$(docker ps -q -f name=app-$OLD)" ]; then
-        echo "Arret de l'ancienne version $OLD..."
+        echo "🛑 Arrêt de l'ancienne version $OLD..."
         docker stop app-$OLD
+        docker rm app-$OLD
     fi
-    echo "Deploiement reussi !"
+    echo "🎉 Déploiement réussi !"
 else
-    echo "Echec du deploiement de $TARGET. L'ancienne version $OLD reste active."
+    echo "❌ Échec du déploiement de $TARGET. L'ancienne version $OLD reste active."
     exit 1
 fi
