@@ -1,19 +1,24 @@
 # Stage 1: Construction
 FROM node:18-bullseye-slim AS builder
 
-# Installation des dépendances système nécessaires pour Prisma et la compilation
+# Installation des dépendances système
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
-# On copie les fichiers de dépendances depuis le dossier app/
+# Copie des dépendances
 COPY app/package*.json ./
 RUN npm install
 
-# On copie tout le reste du code source
+# Copie du code source
 COPY app/ .
 
-# Génération du client Prisma (important pour les types)
+
+# On recrée manuellement le fichier prisma-client.ts pour que TypeScript soit content
+RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
+# -------------------------------------
+
+# Génération du client Prisma
 RUN npx prisma generate
 
 # Stage 2: Image finale (plus légère)
@@ -30,7 +35,7 @@ COPY --from=builder /usr/src/app ./
 # On expose le port 3000
 EXPOSE 3000
 
-# Commande de démarrage : 
-# 1. Déploiement des migrations sur la DB
-# 2. Lancement de l'API en forçant l'écoute sur 0.0.0.0
-CMD npx prisma migrate deploy && npx nx serve api --host=0.0.0.0
+# Commande de démarrage simplifiée
+# Note : On a retiré "migrate deploy" d'ici car c'est le script deploy.sh qui le fait.
+# Cela permet au conteneur de démarrer plus vite.
+CMD ["npx", "nx", "serve", "api", "--host=0.0.0.0"]
