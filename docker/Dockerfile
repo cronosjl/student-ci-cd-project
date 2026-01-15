@@ -5,21 +5,27 @@ RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var
 
 WORKDIR /app
 
-# 1. On installe les dépendances
-COPY app/package*.json ./
-RUN npm install
-
-# 2. On copie le code (GRACE AU .dockerignore, on ne copie PAS le node_modules pourri)
+# 1. On copie TOUT le dossier app (y compris le mauvais node_modules s'il passe le filtre)
 COPY app/ .
 
-# 3. Fix du fichier manquant
+# 2. --- NETTOYAGE FORCE ---
+# C'est la ligne magique : on supprime tout ce qui aurait pu être copié par erreur
+RUN rm -rf node_modules package-lock.json dist
+
+# 3. Installation PROPRE (Clean Install)
+RUN npm install
+
+# 4. Fix du fichier manquant (Prisma Client)
 RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
 
-# 4. On expose le port
+# 5. Génération Prisma (Avec les types frais)
+RUN npx prisma generate
+
+# 6. Exposition
 EXPOSE 3000
 
-# 5. Variable magique : Désactive le Daemon NX pour éviter les bugs de cache
+# 7. Variable pour désactiver le cache NX
 ENV NX_DAEMON=false
 
-# 6. Démarrage : On force la génération et on lance
+# 8. Démarrage
 CMD sh -c "npx prisma generate && npx nx serve api --host=0.0.0.0 --skip-nx-cache"
