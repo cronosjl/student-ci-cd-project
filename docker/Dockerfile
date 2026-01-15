@@ -1,60 +1,26 @@
-import express from 'express';
-import cors from 'cors';
-import * as bodyParser from 'body-parser';
-import routes from './app/routes/routes';
-import HttpException from './app/models/http-exception.model';
+FROM node:18-bullseye
 
-const app = express();
+# Installation des dépendances système pour Prisma
+RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-/**
- * App Configuration
- */
+WORKDIR /app
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+# Copie du code source
+COPY app/ .
 
-// Sécurité pour l'import des routes (Fix Build Prod)
-app.use((routes as any).default ? (routes as any).default : routes);
+# Nettoyage et installation propre pour Linux
+RUN rm -rf node_modules package-lock.json dist .nx
+RUN npm install
 
-// Serves images
-app.use(express.static(__dirname + '/assets'));
+# Génération du client Prisma
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
-app.get('/', (req: express.Request, res: express.Response) => {
-  res.json({ status: 'API is running on /api' });
-});
+# Build de l'application (si nécessaire par votre framework)
+# RUN npx nx build api
 
-/* eslint-disable */
-app.use(
-  (
-    err: Error | HttpException,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    // @ts-ignore
-    if (err && err.name === 'UnauthorizedError') {
-      return res.status(401).json({
-        status: 'error',
-        message: 'missing authorization credentials',
-      });
-      // @ts-ignore
-    } else if (err && err.errorCode) {
-      // @ts-ignore
-      res.status(err.errorCode).json(err.message);
-    } else if (err) {
-      res.status(500).json(err.message);
-    }
-  },
-);
+EXPOSE 3000
+ENV NODE_ENV=production
+ENV NX_DAEMON=false
 
-/**
- * Server activation
- */
-
-const PORT = process.env.PORT || 3000;
-
-// --- FIX FINAL : On ajoute '0.0.0.0' pour que Docker puisse accéder au serveur ---
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.info(`server up on port ${PORT}`);
-});
+# Démarrage : Migration de la DB puis lancement du serveur
+CMD sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma && node dist/api/main.js"

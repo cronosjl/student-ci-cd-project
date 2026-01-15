@@ -9,7 +9,6 @@ const app = express();
 /**
  * App Configuration
  */
-
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -32,16 +31,13 @@ app.use(
     res: express.Response,
     next: express.NextFunction,
   ) => {
-    // @ts-ignore
     if (err && err.name === 'UnauthorizedError') {
       return res.status(401).json({
         status: 'error',
         message: 'missing authorization credentials',
       });
-      // @ts-ignore
-    } else if (err && err.errorCode) {
-      // @ts-ignore
-      res.status(err.errorCode).json(err.message);
+    } else if (err && (err as HttpException).errorCode) {
+      res.status((err as HttpException).errorCode).json(err.message);
     } else if (err) {
       res.status(500).json(err.message);
     }
@@ -51,10 +47,9 @@ app.use(
 /**
  * Server activation
  */
-
 const PORT = process.env.PORT || 3000;
 
-// --- FIX FINAL : On ajoute '0.0.0.0' pour que Docker puisse accéder au serveur ---
+// FIX : Utilisation de '0.0.0.0' pour l'accessibilité Docker
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.info(`server up on port ${PORT}`);
 });
