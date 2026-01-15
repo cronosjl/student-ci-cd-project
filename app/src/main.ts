@@ -14,9 +14,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// --- FIX CRITIQUE : Gestion de l'import après build ---
-// On vérifie si "routes" est caché dans une propriété .default ou s'il est direct.
-// Cela résout l'erreur "app.use() requires a middleware function".
+// Sécurité pour l'import des routes (Fix Build Prod)
 app.use((routes as any).default ? (routes as any).default : routes);
 
 // Serves images
@@ -56,6 +54,7 @@ app.use(
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+// --- FIX FINAL : On ajoute '0.0.0.0' pour que Docker puisse accéder au serveur ---
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.info(`server up on port ${PORT}`);
 });
