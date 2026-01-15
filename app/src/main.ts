@@ -13,7 +13,11 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(routes);
+
+// --- FIX CRITIQUE : Gestion de l'import après build ---
+// On vérifie si "routes" est caché dans une propriété .default ou s'il est direct.
+// Cela résout l'erreur "app.use() requires a middleware function".
+app.use((routes as any).default ? (routes as any).default : routes);
 
 // Serves images
 app.use(express.static(__dirname + '/assets'));
