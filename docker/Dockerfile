@@ -5,17 +5,18 @@ RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var
 
 WORKDIR /app
 
-# 1. On copie TOUT le dossier app (y compris le mauvais node_modules s'il passe le filtre)
+# 1. On copie TOUT (même le mauvais node_modules s'il traîne)
 COPY app/ .
 
-# 2. --- NETTOYAGE FORCE ---
-# C'est la ligne magique : on supprime tout ce qui aurait pu être copié par erreur
-RUN rm -rf node_modules package-lock.json dist
+# 2. --- LE BULLDOZER ---
+# On supprime violemment le dossier node_modules copié pour être sûr de partir de zéro
+RUN rm -rf node_modules dist .nx
 
 # 3. Installation PROPRE (Clean Install)
+# On force l'installation propre
 RUN npm install
 
-# 4. Fix du fichier manquant (Prisma Client)
+# 4. Fix du fichier manquant
 RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
 
 # 5. Génération Prisma (Avec les types frais)
