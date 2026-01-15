@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   # --- SERVICE BLUE ---
   blue:
@@ -35,12 +34,10 @@ services:
     image: postgres:14-alpine
     container_name: db
     environment:
-      # CORRECTION ICI : On force admin/password pour correspondre à votre Secret GitHub
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=conduit
     healthcheck:
-      # On met a jour le healthcheck pour verifier l'utilisateur 'admin'
       test: ["CMD-SHELL", "pg_isready -U admin -d conduit"]
       interval: 5s
       timeout: 5s
