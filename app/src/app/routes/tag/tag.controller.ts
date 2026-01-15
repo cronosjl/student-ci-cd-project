@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import auth from '../auth/auth';
-import getTags from './tag.service';
+// IMPORTANT : On importe "optional" entre accolades
+import { optional as authOptional } from '../auth/auth';
+import { getTags } from './tag.service';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ const router = Router();
  * @route {GET} /api/tags
  * @returns tags list of tag names
  */
-router.get('/tags', auth.optional, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/tags', authOptional, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const tags = await getTags(req.auth?.user?.id);
     res.json({ tags });

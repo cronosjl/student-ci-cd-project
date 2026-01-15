@@ -11,18 +11,16 @@ const getTokenFromHeaders = (req: express.Request): string | null => {
   return null;
 };
 
-const auth = {
-  required: jwt({
-    secret: process.env.JWT_SECRET || 'superSecret',
-    getToken: getTokenFromHeaders,
-    algorithms: ['HS256'],
-  }),
-  optional: jwt({
-    secret: process.env.JWT_SECRET || 'superSecret',
-    credentialsRequired: false,
-    getToken: getTokenFromHeaders,
-    algorithms: ['HS256'],
-  }),
-};
+// IMPORTANT : Export nommé (pas de default)
+export const required = jwt({
+  secret: process.env.JWT_SECRET || 'superSecret',
+  getToken: getTokenFromHeaders,
+  algorithms: ['HS256'],
+});
 
-export default auth;
+export const optional = jwt({
+  secret: process.env.JWT_SECRET || 'superSecret',
+  credentialsRequired: false,
+  getToken: getTokenFromHeaders,
+  algorithms: ['HS256'],
+});
