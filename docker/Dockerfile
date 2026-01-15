@@ -1,34 +1,37 @@
 FROM node:18-bullseye
 
-# Installation des lib système
+# Installation des outils système nécessaires pour compiler Prisma
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 1. On copie TOUT le contenu du dossier 'app' local vers le dossier '/app' du conteneur
-# Grâce à votre image, on sait que cela inclut 'app/prisma', 'app/package.json', etc.
+# 1. On copie TOUT le dossier 'app' 
+# (Cela inclut package.json, prisma/, src/, etc.)
 COPY app/ .
 
-# 2. --- LE NETTOYAGE (Bulldozer) ---
-# On supprime le dossier node_modules qui a été copié pour être sûr à 100% de partir propre
-RUN rm -rf node_modules dist .nx
+# 2. --- LE GRAND NETTOYAGE ---
+# On supprime node_modules ET package-lock.json copiés depuis votre PC.
+# C'est CRUCIAL pour que Docker installe les versions Linux propres.
+RUN rm -rf node_modules package-lock.json dist .nx
 
-# 3. Installation PROPRE des dépendances
+# 3. Installation fraîche
+# Cela va recréer un node_modules 100% compatible Linux
 RUN npm install
 
-# 4. Création du fichier manquant (Indispensable pour TypeScript)
-RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
-
-# 5. Génération Prisma EXPLICITE
-# On pointe précisément vers le fichier visible dans votre image
+# 4. Génération du Client Prisma
+# On pointe explicitement vers le schéma qui est maintenant dans /app/prisma/
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# 6. Exposition
+# 5. Fix du fichier manquant (Au cas où il ne serait pas dans votre git)
+# Si votre fichier existe déjà, cette ligne l'écrasera avec une version minimale qui marche.
+RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
+
+# 6. Exposition du port
 EXPOSE 3000
 
-# 7. Optimisation NX
+# 7. Variable pour désactiver le cache NX (évite les vieux bugs de build)
 ENV NX_DAEMON=false
 
 # 8. Démarrage
-# On relance la génération au démarrage par sécurité, puis on lance l'app
+# On relance la génération au démarrage par sécurité absolue
 CMD sh -c "npx prisma generate --schema=./prisma/schema.prisma && npx nx serve api --host=0.0.0.0 --skip-nx-cache"
