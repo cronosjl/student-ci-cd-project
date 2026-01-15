@@ -10,7 +10,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// SÉCURITÉ IMPORT (Build Prod Fix)
+// SÉCURITÉ IMPORT (Indispensable pour le build prod)
 app.use((routes as any).default ? (routes as any).default : routes);
 
 app.use(express.static(__dirname + '/assets'));
@@ -45,8 +45,10 @@ app.use(
 
 const PORT = process.env.PORT || 3000;
 
-// --- LA CORRECTION CRITIQUE EST ICI ---
-// On force l'écoute sur 0.0.0.0 sinon Docker bloque la connexion entrante
+// =========================================================
+// C'EST ICI QUE TOUT SE JOUE.
+// "0.0.0.0" EST OBLIGATOIRE POUR QUE LE TEST DEPLOIEMENT PASSE
+// =========================================================
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.info(`server up on port ${PORT}`);
 });
