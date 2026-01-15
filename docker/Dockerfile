@@ -5,28 +5,30 @@ RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var
 
 WORKDIR /app
 
-# 1. On copie TOUT (même le mauvais node_modules s'il traîne)
+# 1. On copie TOUT le contenu du dossier 'app' local vers le dossier '/app' du conteneur
+# Grâce à votre image, on sait que cela inclut 'app/prisma', 'app/package.json', etc.
 COPY app/ .
 
-# 2. --- LE BULLDOZER ---
-# On supprime violemment le dossier node_modules copié pour être sûr de partir de zéro
+# 2. --- LE NETTOYAGE (Bulldozer) ---
+# On supprime le dossier node_modules qui a été copié pour être sûr à 100% de partir propre
 RUN rm -rf node_modules dist .nx
 
-# 3. Installation PROPRE (Clean Install)
-# On force l'installation propre
+# 3. Installation PROPRE des dépendances
 RUN npm install
 
-# 4. Fix du fichier manquant
+# 4. Création du fichier manquant (Indispensable pour TypeScript)
 RUN echo "import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); export default prisma;" > prisma/prisma-client.ts
 
-# 5. Génération Prisma (Avec les types frais)
-RUN npx prisma generate
+# 5. Génération Prisma EXPLICITE
+# On pointe précisément vers le fichier visible dans votre image
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # 6. Exposition
 EXPOSE 3000
 
-# 7. Variable pour désactiver le cache NX
+# 7. Optimisation NX
 ENV NX_DAEMON=false
 
 # 8. Démarrage
-CMD sh -c "npx prisma generate && npx nx serve api --host=0.0.0.0 --skip-nx-cache"
+# On relance la génération au démarrage par sécurité, puis on lance l'app
+CMD sh -c "npx prisma generate --schema=./prisma/schema.prisma && npx nx serve api --host=0.0.0.0 --skip-nx-cache"
